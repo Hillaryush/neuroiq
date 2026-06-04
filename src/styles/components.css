@@ -1,0 +1,36 @@
+/* Additional component-specific styles */
+
+/* Game card hover shimmer */
+.game-card-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.game-card-shimmer:hover::after {
+  opacity: 1;
+}
+
+/* Smooth number transitions */
+.stat-number {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Responsive grid */
+@media (max-width: 640px) {
+  .game-grid-responsive {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .stats-grid-responsive {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}

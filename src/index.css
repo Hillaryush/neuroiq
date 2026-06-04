@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #07070f;
+  --surface: #0e0e18;
+  --card: #13131e;
+  --border: #242438;
+  --accent: #7c6cff;
+  --teal: #00d4aa;
+  --red: #ff6b6b;
+  --yellow: #ffd166;
+  --pink: #f472b6;
+  --muted: #7777aa;
+  --dim: #3a3a52;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+html, body, #root {
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: white;
+  font-family: 'Space Grotesk', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+
+::selection { background: #7c6cff44; color: white; }
+
+/* ── Gradient text ────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #7c6cff 0%, #00d4aa 50%, #ffd166 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glass ────────────────────────────────────────────────── */
+.glass {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+/* ── Button reset ─────────────────────────────────────────── */
+.btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.btn:active { transform: scale(0.97); }
+
+input, textarea, select {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+/* ── Line clamp ───────────────────────────────────────────── */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes scorePop {
+  0%   { transform: translateY(0) scale(1);   opacity: 1; }
+  100% { transform: translateY(-40px) scale(1.3); opacity: 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.06) 50%,transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
+}
+.animate-float { animation: float 4s ease-in-out infinite; }
+.score-pop     { animation: scorePop 0.8s ease-out forwards; }
+
+/* ── Tabular nums ─────────────────────────────────────────── */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* ── Safe area (mobile notch) ────────────────────────────── */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE OVERRIDES
+   ═══════════════════════════════════════════════════════════ */
+
+/* 100 % zoom desktop  ≥ 1024px — full layout */
+@media (min-width: 1024px) {
+  .game-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .stats-grid { grid-template-columns: repeat(4, 1fr) !important; }
+}
+
+/* Laptop / tablet landscape  768–1023px */
+@media (max-width: 1023px) {
+  .game-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .stats-grid { grid-template-columns: repeat(4, 1fr) !important; }
+}
+
+/* Tablet portrait  600–767px */
+@media (max-width: 767px) {
+  html { font-size: 15px; }
+  .game-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Mobile  < 600px */
+@media (max-width: 599px) {
+  html { font-size: 14px; }
+  .game-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Very small  < 360px */
+@media (max-width: 359px) {
+  html { font-size: 13px; }
+  .game-grid  { grid-template-columns: 1fr !important; }
+}
+
+/* Minimum tap target */
+@media (pointer: coarse) {
+  button, [role="button"] { min-height: 44px; min-width: 44px; }
+}
