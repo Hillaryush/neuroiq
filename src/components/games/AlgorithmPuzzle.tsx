@@ -1,92 +1,114 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { useGameTimer } from '../../hooks/useGameTimer'
 import { useScore } from '../../hooks/useScore'
 import { sound } from '../../services/soundService'
 import GameLayout from '../GameLayout'
+import { ALGO_PUZZLE_BANK, type AlgoPuzzleQ } from '../../data/algoPuzzleQuestions'
+import { pickQuestion, getTierFromScore, TIER_COLORS, TIER_LABELS, type DifficultyTier } from '../../utils/questionEngine'
 
-interface Puzzle { title:string; steps:string[]; shuffled:string[] }
+interface Props { onFinish: (s: number) => void; onExit: () => void }
 
-const PUZZLES: Puzzle[] = [
-  { title:'Boil Water for Tea',
-    steps:['Fill kettle with water','Turn on kettle','Wait for water to boil','Pour into cup with teabag','Let steep 3 minutes'],
-    shuffled:['Let steep 3 minutes','Fill kettle with water','Pour into cup with teabag','Turn on kettle','Wait for water to boil'] },
-  { title:'Binary Search Algorithm',
-    steps:['Set left=0, right=length-1','Calculate mid=(left+right)/2','If target==arr[mid], return mid','If target>arr[mid], left=mid+1 else right=mid-1','Repeat until found or left>right'],
-    shuffled:['If target==arr[mid], return mid','Repeat until found or left>right','Set left=0, right=length-1','If target>arr[mid], left=mid+1 else right=mid-1','Calculate mid=(left+right)/2'] },
-  { title:'Login Flow',
-    steps:['User enters email and password','Validate input fields','Send credentials to server','Server checks database','Return success or error token'],
-    shuffled:['Return success or error token','User enters email and password','Server checks database','Validate input fields','Send credentials to server'] },
-  { title:'Bubble Sort',
-    steps:['Start from index 0','Compare adjacent elements','If left > right, swap them','Move to next pair','Repeat until no swaps needed'],
-    shuffled:['Repeat until no swaps needed','Compare adjacent elements','Start from index 0','Move to next pair','If left > right, swap them'] },
-  { title:'Making a Sandwich',
-    steps:['Get two slices of bread','Spread butter on one side','Add filling ingredients','Put slices together','Slice diagonally and serve'],
-    shuffled:['Slice diagonally and serve','Get two slices of bread','Put slices together','Add filling ingredients','Spread butter on one side'] },
-]
+const THRESHOLDS = { medium: 100, hard: 300, expert: 600 }
+const TIER_TIME: Record<DifficultyTier, number> = { easy: 35, medium: 45, hard: 95, expert: 120 }
 
-let used: number[] = []
-function pick(): Puzzle {
-  if (used.length>=PUZZLES.length) used=[]
-  const avail=PUZZLES.map((_,i)=>i).filter(i=>!used.includes(i))
-  const idx=avail[Math.floor(Math.random()*avail.length)]; used.push(idx)
-  const p=PUZZLES[idx]; return { ...p, shuffled:[...p.shuffled] }
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  // Guard against accidental already-correct shuffle
+  return a
 }
 
-interface Props { onFinish:(s:number)=>void; onExit:()=>void }
-
 export default function AlgorithmPuzzle({ onFinish, onExit }: Props) {
-  const [puzzle, setPuzzle]   = useState<Puzzle>(pick)
-  const [order, setOrder]     = useState<string[]>([...puzzle.shuffled])
-  // drag state removed
+  const { score, add } = useScore()
+  const [tier, setTier]       = useState<DifficultyTier>('easy')
+  const [puzzle, setPuzzle]   = useState<AlgoPuzzleQ>(() => pickQuestion('algorithmpuzzle', ALGO_PUZZLE_BANK, 'easy'))
+  const [order, setOrder]     = useState<string[]>(() => shuffle(puzzle.steps))
   const [checked, setChecked] = useState(false)
   const [correct, setCorrect] = useState(false)
-  const { score, add }        = useScore()
-  const timer = useGameTimer(45, ()=>onFinish(score))
-  useEffect(()=>{ timer.start() },[]) // eslint-disable-line
+  const [timeLeft, setTime]   = useState(TIER_TIME.easy)
+  const [maxTime, setMax]     = useState(TIER_TIME.easy)
 
-  useEffect(()=>{ setOrder([...puzzle.shuffled]) },[puzzle])
+  useEffect(() => {
+    const t = setInterval(() => setTime(p => {
+      if (p <= 1) { clearInterval(t); onFinish(score); return 0 }
+      return p - 1
+    }), 1000)
+    return () => clearInterval(t)
+  }, []) // eslint-disable-line
 
-  const moveUp   = (i: number) => { if(i===0)return; sound.stepMoved(); const o=[...order]; [o[i-1],o[i]]=[o[i],o[i-1]]; setOrder(o) }
-  const moveDown = (i: number) => { if(i===order.length-1)return; const o=[...order]; [o[i],o[i+1]]=[o[i+1],o[i]]; setOrder(o) }
+  const nextPuzzle = useCallback((currentScore: number) => {
+    const newTier = getTierFromScore(currentScore, THRESHOLDS)
+    setTier(newTier)
+    const p = pickQuestion('algorithmpuzzle', ALGO_PUZZLE_BANK, newTier)
+    setPuzzle(p)
+    setOrder(shuffle(p.steps))
+    setTime(TIER_TIME[newTier])
+    setMax(TIER_TIME[newTier])
+    setChecked(false)
+    setCorrect(false)
+  }, [])
 
-  const check = useCallback(()=>{
-    const ok = order.every((s,i)=>s===puzzle.steps[i])
-    setChecked(true); setCorrect(ok)
-    if(ok){ sound.algoCorrect(); add(timer.timeLeft*10+80) }
-    setTimeout(()=>{ setPuzzle(pick()); setChecked(false); setCorrect(false); timer.reset(); timer.start() },1200)
-  },[order,puzzle.steps,timer,add])
+  const moveUp   = (i: number) => { if (i === 0 || checked) return; sound.stepMoved(); const o = [...order]; [o[i-1],o[i]] = [o[i],o[i-1]]; setOrder(o) }
+  const moveDown = (i: number) => { if (i === order.length - 1 || checked) return; sound.stepMoved(); const o = [...order]; [o[i],o[i+1]] = [o[i+1],o[i]]; setOrder(o) }
+
+  const check = useCallback(() => {
+    const ok = order.every((s, i) => s === puzzle.steps[i])
+    setChecked(true)
+    setCorrect(ok)
+    if (ok) {
+      const tierMult = tier === 'expert' ? 4.5 : tier === 'hard' ? 2.6 : tier === 'medium' ? 1.5 : 1
+      sound.algoCorrect()
+      add(Math.round((timeLeft * 10 + 80) * tierMult))
+    }
+    setTimeout(() => nextPuzzle(score + (ok ? 1 : 0)), 1300)
+  }, [order, puzzle.steps, timeLeft, add, tier, score, nextPuzzle])
+
+  const tierColor = TIER_COLORS[tier]
 
   return (
-    <GameLayout title="Algorithm Puzzle ⚙️" score={score} timerProgress={timer.progress} timeLeft={timer.timeLeft} onExit={onExit}>
-      <div className="text-center text-sm mb-2" style={{color:'var(--muted)'}}>
-        Arrange steps in <strong style={{color:'white'}}>correct order</strong>:
+    <GameLayout title="Algorithm Puzzle ⚙️" score={score} timerProgress={timeLeft / maxTime} timeLeft={timeLeft} onExit={onExit}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm" style={{ color: 'var(--muted)' }}>
+          Arrange steps in <strong style={{ color: 'white' }}>correct order</strong>
+        </div>
+        <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background: tierColor + '22', color: tierColor }}>
+          {TIER_LABELS[tier]}
+        </span>
       </div>
-      <div className="text-center font-bold mb-4" style={{color:'#7c6cff'}}>{puzzle.title}</div>
+      <div className="text-center font-bold mb-4" style={{ color: '#7c6cff', fontSize: 'clamp(13px,2.2vw,16px)' }}>
+        {puzzle.title}
+      </div>
       <div className="space-y-2 mb-5">
-        {order.map((step,i)=>(
+        {order.map((step, i) => (
           <motion.div key={step} layout className="flex items-center gap-2">
-            <span className="font-display font-bold w-6 text-center text-sm" style={{color:'var(--muted)'}}>{i+1}</span>
-            <div className="flex-1 px-4 py-3 rounded-xl text-sm font-medium border"
-              style={{background:checked?correct?'#00d4aa11':order[i]===puzzle.steps[i]?'#00d4aa11':'#ff6b6b11':'var(--surface)',
-                borderColor:checked?correct?'#00d4aa':order[i]===puzzle.steps[i]?'#00d4aa':'#ff6b6b':'var(--border)',color:'white'}}>
+            <span className="font-display font-bold w-6 text-center text-sm shrink-0" style={{ color: 'var(--muted)' }}>{i + 1}</span>
+            <div className="flex-1 px-3 py-2.5 rounded-xl font-medium border"
+              style={{
+                fontSize: 'clamp(11px,1.8vw,13px)',
+                background: checked ? (correct ? '#00d4aa11' : order[i] === puzzle.steps[i] ? '#00d4aa11' : '#ff6b6b11') : 'var(--surface)',
+                borderColor: checked ? (correct ? '#00d4aa' : order[i] === puzzle.steps[i] ? '#00d4aa' : '#ff6b6b') : 'var(--border)',
+                color: 'white',
+              }}>
               {step}
             </div>
-            <div className="flex flex-col gap-0.5">
-              <button onClick={()=>moveUp(i)} className="px-2 py-0.5 rounded text-xs" style={{background:'var(--surface)',color:'var(--muted)',border:'1px solid var(--border)'}}>▲</button>
-              <button onClick={()=>moveDown(i)} className="px-2 py-0.5 rounded text-xs" style={{background:'var(--surface)',color:'var(--muted)',border:'1px solid var(--border)'}}>▼</button>
+            <div className="flex flex-col gap-0.5 shrink-0">
+              <button onClick={() => moveUp(i)} className="px-2 py-0.5 rounded text-xs" style={{ background: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)' }}>▲</button>
+              <button onClick={() => moveDown(i)} className="px-2 py-0.5 rounded text-xs" style={{ background: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)' }}>▼</button>
             </div>
           </motion.div>
         ))}
       </div>
-      <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={check}
+      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={check} disabled={checked}
         className="w-full py-3 rounded-2xl font-bold text-white"
-        style={{background:'linear-gradient(135deg,#7c6cff,#5544ee)',border:'none'}}>
+        style={{ background: 'linear-gradient(135deg,#7c6cff,#5544ee)', border: 'none', opacity: checked ? 0.6 : 1 }}>
         ✅ Check Order
       </motion.button>
       {checked && (
-        <div className="text-center mt-3 font-bold" style={{color:correct?'#00d4aa':'#ff6b6b'}}>
-          {correct?`✅ Perfect! +${timer.timeLeft*10+80}`:'❌ Not quite right, try again!'}
+        <div className="text-center mt-3 font-bold" style={{ color: correct ? '#00d4aa' : '#ff6b6b' }}>
+          {correct ? '✅ Perfect!' : '❌ Not quite right, try again!'}
         </div>
       )}
     </GameLayout>
